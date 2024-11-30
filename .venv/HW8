@@ -1,0 +1,88 @@
+import numpy as np
+import tensorflow as tf
+
+SEED = 42
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+# , preprocess_input
+
+# Define the CNN model
+def create_cnn_model(input_shape=(200, 200, 3)):
+    model = Sequential()
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), activation='relu', input_shape=input_shape))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Flatten())
+    model.add(Dense(units=64, activation='relu'))
+    model.add(Dense(units=1, activation='sigmoid'))
+    optimizer = SGD(learning_rate=0.002, momentum=0.8)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+cnn_model = create_cnn_model()
+cnn_model.summary()
+
+train_generator = ImageDataGenerator(rescale=1./255)
+train_ds = train_generator.flow_from_directory(
+    "data/train",
+    seed=42,
+    target_size=(200, 200),       
+    batch_size=20,
+    class_mode='binary',
+    shuffle=True
+)
+
+test_generator = ImageDataGenerator(rescale=1./255)
+test_ds = test_generator.flow_from_directory(
+    "data/test",
+    seed=42,
+    target_size=(200, 200),       
+    batch_size=20,
+    class_mode='binary',
+    shuffle=True
+)
+
+history = cnn_model.fit(
+    train_ds,
+    epochs=10,
+    validation_data=test_ds
+)
+
+epochs = history.epoch
+print("Median of training accuracy: ", np.median(np.array(history.history['accuracy'])))
+print("Standard Deviation of training loss: ", np.std(np.array(history.history['loss'])))
+
+# DATA AUGMENTATION
+
+train_generator2 = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=50,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    zoom_range=0.1,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+train_ds2 = train_generator2.flow_from_directory(
+    "data/train",
+    seed=42,
+    target_size=(200, 200),       
+    batch_size=20,
+    class_mode='binary',
+    shuffle=True,
+)
+
+history2 = cnn_model.fit(
+    train_ds2,
+    epochs=10,
+    validation_data=test_ds
+)
+
+epochs2 = history2.epoch
+print("Mean of test loss: ", np.array(history2.history['val_loss']).mean())
+print("Average of test accuracy for the last 5 epochs: ", np.mean(np.array(history2.history['val_accuracy'])[5:10]))
